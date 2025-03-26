@@ -1,0 +1,652 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: Final task
+
+Parameters:
+  Maintainer:
+    Description: Info regardin maintainer
+    Type: String
+    Default: Matei_Neaga
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value: cmtr-7066c4b4-vpc
+        - Key: Maintainer
+          Value: !Ref Maintainer
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: us-east-1a
+      CidrBlock: 10.0.1.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: cmtr-7066c4b4-pub-sub1
+        - Key: Maintainer
+          Value: !Ref Maintainer
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: us-east-1b
+      CidrBlock: 10.0.2.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: cmtr-7066c4b4-pub-sub2
+        - Key: Maintainer
+          Value: !Ref Maintainer
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: us-east-1a
+      CidrBlock: 10.0.3.0/24
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: cmtr-7066c4b4-priv-sub1
+  
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: us-east-1b
+      CidrBlock: 10.0.4.0/24
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: cmtr-7066c4b4-priv-sub2
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: cmtr-7066c4b4-igw
+        - Key: Maintainer
+          Value: !Ref Maintainer
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+  NatGateway1EIP:
+    Type: AWS::EC2::EIP
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      Domain: vpc
+
+  NatGateway1:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGateway1EIP.AllocationId
+      SubnetId: !Ref PublicSubnet1
+
+  PrivateRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: cmtr-7066c4b4-private-rt1
+
+
+  PublicRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: cmtr-7066c4b4-public-rt1
+        - Key: Maintainer
+          Value: !Ref Maintainer
+
+  PrivateRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: cmtr-7066c4b4-private-rt2
+
+  PublicRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: cmtr-7066c4b4-public-rt2
+        - Key: Maintainer
+          Value: !Ref Maintainer
+
+  DefaultPrivateRoute1:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable1
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway1
+
+  DefaultPrivateRoute2:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable2
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway1
+
+  DefaultPublicRoute1:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable1
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  DefaultPublicRoute2:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable2
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable1
+      SubnetId: !Ref PublicSubnet1
+  
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable2
+      SubnetId: !Ref PublicSubnet2
+
+
+  PrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable1
+      SubnetId: !Ref PrivateSubnet1
+
+
+  PrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable2
+      SubnetId: !Ref PrivateSubnet2
+
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: Allow HTTP
+      GroupDescription: Allow HTTP inbound and all outbound traffic
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 3000
+          ToPort: 3000
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Maintainer
+          Value: !Ref Maintainer
+        - Key: Name
+          Value: cmtr-7066c4b4-alb-sg
+
+  EC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: Allow HTTP and SSH
+      GroupDescription: Allow HTTP and SSH inbound and all outbound traffic
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Maintainer
+          Value: !Ref Maintainer
+        - Key: Name
+          Value: cmtr-7066c4b4-ec2-sg
+
+  RDSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: Allow RDS
+      GroupDescription: Allow RDS inbound and all outbound traffic
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Maintainer
+          Value: !Ref Maintainer
+        - Key: Name
+          Value: cmtr-7066c4b4-rds-sg
+
+  EFSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: Allow EFS
+      GroupDescription: Allow EFS inbound and all outbound traffic
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 2049
+          ToPort: 2049
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Maintainer
+          Value: !Ref Maintainer
+        - Key: Name
+          Value: cmtr-7066c4b4-efs-sg
+          
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Type: application
+      Name: "cmtr-7066c4b4-alb"
+      Scheme: internet-facing
+      Subnets:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+      SecurityGroups:
+        - !Ref ALBSecurityGroup
+
+  ALBTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: "cmtr-7066c4b4-tg"
+      HealthCheckIntervalSeconds: 20
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 5
+      Port: 80
+      Protocol: HTTP
+      HealthCheckProtocol: HTTP
+      HealthCheckPath: "/"
+      VpcId: !Ref VPC
+      TargetType: instance
+
+  HttpPlainListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref ALBTargetGroup
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  ALBListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref ALBTargetGroup
+      Conditions:
+        - Field: path-pattern
+          Values: [ "/" ]
+      ListenerArn: !Ref HttpPlainListener
+      Priority: 1
+
+  RDSSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupName: !Sub "cmtr-7066c4b4-rds-subnet-group-${AWS::StackName}"
+      DBSubnetGroupDescription: "Subnet group for RDS instance"
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+
+  Gitea:
+    Type: AWS::RDS::DBInstance
+    DependsOn: RDSSubnetGroup
+    Properties:
+      DBInstanceIdentifier: giteadb  # Name should be giteadb as per requirements
+      Engine: mysql
+      EngineVersion: "8.0.33"
+      DBInstanceClass: db.t3.micro
+      AllocatedStorage: 20
+      MasterUsername: user
+      MasterUserPassword: password
+      VPCSecurityGroups:
+        - !Ref RDSSecurityGroup
+      PubliclyAccessible: false
+      DBSubnetGroupName: !Ref RDSSubnetGroup
+      BackupRetentionPeriod: 0
+
+  EFSFileSystem:
+    Type: AWS::EFS::FileSystem
+    Properties:
+      Encrypted: true
+      PerformanceMode: generalPurpose
+      ThroughputMode: bursting
+      FileSystemTags:
+        - Key: Name
+          Value: cmtr-7066c4b4-efs
+
+  MountTarget1:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref EFSFileSystem
+      SubnetId: !Ref PrivateSubnet1 
+      SecurityGroups:
+        - !Ref EFSSecurityGroup
+
+  MountTarget2:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref EFSFileSystem
+      SubnetId: !Ref PrivateSubnet2 
+      SecurityGroups:
+        - !Ref EFSSecurityGroup
+
+  SSM4EC2:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: cmtr-7066c4b4-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore  
+
+
+  SSM4EC2Profile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: cmtr-7066c4b4-profile
+      Roles:
+        - !Ref SSM4EC2
+
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: cmtr-7066c4b4-launch-template
+      LaunchTemplateData:
+        IamInstanceProfile:
+          Name: !Ref SSM4EC2Profile
+        DisableApiTermination: true
+        ImageId: ami-05b10e08d247fb927
+        InstanceType: t2.micro
+        SecurityGroupIds:
+          - !Ref EC2SecurityGroup
+        BlockDeviceMappings:
+          - DeviceName: "/dev/xvda"
+            Ebs:
+              VolumeSize: 20
+              VolumeType: gp3
+              DeleteOnTermination: true
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: cmtr-7066c4b4-ec2-instance
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+
+            yum update -y
+            yum install -y amazon-efs-utils nfs-utils git docker mariadb105-server
+
+            systemctl enable docker
+            systemctl start docker
+            usermod -aG docker ec2-user
+
+            curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64" -o /usr/local/bin/docker-compose
+            chmod +x /usr/local/bin/docker-compose
+            ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
+
+            echo "DEBUG: EFSFileSystem value: ${EFSFileSystem}" >> /var/log/user-data-debug.log
+            logger "DEBUG: EFSFileSystem value: ${EFSFileSystem}"
+
+            echo "DEBUG: Gitea Endpoint Address: ${Gitea.Endpoint.Address}" >> /var/log/user-data-debug.log
+            logger "DEBUG: Gitea Endpoint Address: ${Gitea.Endpoint.Address}"
+
+            # Set the RDS connection variables
+            RDS_HOST="${Gitea.Endpoint.Address}"
+            RDS_PORT=3306
+            RDS_USER="user"
+            RDS_PASS="password"
+
+            # Wait for MySQL (MariaDB) to start
+            sleep 30
+
+            # Create the database 'giteadb' if it doesn't exist
+            mysql -h ${RDS_HOST} -u ${RDS_USER} -p${RDS_PASS} -e "CREATE DATABASE IF NOT EXISTS giteadb;"
+
+            DIR_SRC="${EFSFileSystem}.efs.${AWS::Region}.amazonaws.com"
+
+            useradd -m -s /bin/bash git
+
+            mkdir -p /gitea
+            chown -R git:git gitea
+            echo -e "$DIR_SRC:/ /gitea nfs defaults,_netdev 0 0" >> /etc/fstab
+            mount -a
+            systemctl restart docker
+
+            mkdir -p /gitea/git/repositories
+            chown -R git:git /gitea/git/repositories
+            chown -R 1000:1000 /gitea/git
+            chmod -R 755 /gitea/git
+
+            # Crearea configurației pentru Gitea
+            rm /gitea/docker-compose.yml
+
+            echo "version: '3'" > /gitea/docker-compose.yml
+            echo "services:" >> /gitea/docker-compose.yml
+            echo "  gitea:" >> /gitea/docker-compose.yml
+            echo "    image: docker.gitea.com/gitea:1.23.5" >> /gitea/docker-compose.yml
+            echo "    container_name: gitea" >> /gitea/docker-compose.yml
+            echo "    restart: always" >> /gitea/docker-compose.yml
+            echo "    ports:" >> /gitea/docker-compose.yml
+            echo "      - \"80:3000\"" >> /gitea/docker-compose.yml
+            echo "      - \"2222:22\"" >> /gitea/docker-compose.yml
+            echo "    volumes:" >> /gitea/docker-compose.yml
+            echo "      - \"/gitea/git:/data/git\"" >> /gitea/docker-compose.yml
+            echo "    environment:" >> /gitea/docker-compose.yml
+            echo "      - \"USER_UID=1000\"" >> /gitea/docker-compose.yml
+            echo "      - \"USER_GID=1000\"" >> /gitea/docker-compose.yml
+            echo "      - \"GITEA__database__DB_TYPE=mysql\"" >> /gitea/docker-compose.yml
+            echo "      - \"GITEA__database__HOST=${Gitea.Endpoint.Address}:3306\"" >> /gitea/docker-compose.yml
+            echo "      - \"GITEA__database__NAME=giteadb\"" >> /gitea/docker-compose.yml
+            echo "      - \"GITEA__database__USER=user\"" >> /gitea/docker-compose.yml
+            echo "      - \"GITEA__database__PASSWD=password\"" >> /gitea/docker-compose.yml
+            echo "networks:" >> /gitea/docker-compose.yml
+            echo "  gitea:" >> /gitea/docker-compose.yml
+            echo "    external: false" >> /gitea/docker-compose.yml
+
+            mkdir -p /gitea/git/repositories
+            chown -R git:git /gitea/git/repositories
+            chown -R 1000:1000 /gitea/git/repositories
+            chmod -R 755 /gitea/git/repositories
+
+            sleep 10
+            cd /gitea
+            docker-compose up -d
+
+
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      MinSize: '2'
+      MaxSize: '4'
+      DesiredCapacity: '2'
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber
+      HealthCheckType: ELB
+      VPCZoneIdentifier:
+        - !Ref PrivateSubnet1
+        - !Ref PublicSubnet1
+      TargetGroupARNs:
+        - !Ref ALBTargetGroup
+
+
+  ScalePolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    DependsOn: HttpPlainListener
+    Properties:
+      AutoScalingGroupName: !Ref AutoScalingGroup
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ALBRequestCountPerTarget
+          ResourceLabel: !Join 
+            - '/' 
+            - - !GetAtt ApplicationLoadBalancer.LoadBalancerFullName
+              - !GetAtt ALBTargetGroup.TargetGroupFullName
+        TargetValue: 10
+
+  CloudWatchDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: cmtr-7066c4b4-dashboard
+      DashboardBody: 
+        Fn::Sub: |
+          {
+            "widgets": [
+              {
+                "type": "metric",
+                "x": 0,
+                "y": 0,
+                "width": 6,
+                "height": 6,
+                "properties": {
+                  "region": "${AWS::Region}",
+                  "metrics": [
+                    ["AWS/RDS", "CPUUtilization", "DBInstanceIdentifier", "${Gitea}"]
+                  ],
+                  "title": "RDS CPU Utilization",
+                  "view": "timeSeries",
+                  "stacked": false
+                }
+              },
+              {
+                "type": "metric",
+                "x": 6,
+                "y": 0,
+                "width": 6,
+                "height": 6,
+                "properties": {
+                  "region": "${AWS::Region}",
+                  "metrics": [
+                    ["AWS/RDS", "DatabaseConnections", "DBInstanceIdentifier", "${Gitea}"]
+                  ],
+                  "title": "RDS Database Connections",
+                  "view": "timeSeries",
+                  "stacked": false
+                }
+              },
+              {
+                "type": "metric",
+                "x": 0,
+                "y": 6,
+                "width": 6,
+                "height": 6,
+                "properties": {
+                  "region": "${AWS::Region}",
+                  "metrics": [
+                    ["AWS/ApplicationELB", "HealthyHostCount", "LoadBalancer", "${ApplicationLoadBalancer}"]
+                  ],
+                  "title": "ALB Healthy Host Count",
+                  "view": "timeSeries",
+                  "stacked": false
+                }
+              },
+              {
+                "type": "metric",
+                "x": 6,
+                "y": 6,
+                "width": 6,
+                "height": 6,
+                "properties": {
+                  "region": "${AWS::Region}",
+                  "metrics": [
+                    ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", "${ApplicationLoadBalancer}"]
+                  ],
+                  "title": "ALB Request Count",
+                  "view": "timeSeries",
+                  "stacked": false
+                }
+              },
+              {
+                "type": "metric",
+                "x": 0,
+                "y": 12,
+                "width": 6,
+                "height": 6,
+                "properties": {
+                  "region": "${AWS::Region}",
+                  "metrics": [
+                    ["AWS/EFS", "ClientConnections", "FileSystemId", "${EFSFileSystem}"]
+                  ],
+                  "title": "EFS Client Connections",
+                  "view": "timeSeries",
+                  "stacked": false
+                }
+              }
+            ]
+          }
+
+
+Outputs:
+  RDSHost:
+    Description: "RDS Endpoint"
+    Value: !GetAtt Gitea.Endpoint.Address
+  EFSID:
+    Description: "EFS FileSystem ID"
+    Value: !Ref EFSFileSystem
